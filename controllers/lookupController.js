@@ -48,3 +48,10 @@ exports.getSizeUnits = (req, res) => {
         res.json(results);
     });
 };
+
+exports.getwarehouse = (req, res) => {
+    db.query('SELECT * FROM warehouse', (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(results);
+    });
+};
