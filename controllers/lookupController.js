@@ -1,14 +1,14 @@
 const db = require('../config/db'); // ملف الاتصال بالـ MySQL
 
 exports.getCategories = (req, res) => {
-    db.query('SELECT * FROM category', (err, results) => {
+    db.query('SELECT * FROM category ORDER BY category_name ASC', (err, results) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(results);
     });
 };
 
 exports.getColors = (req, res) => {
-    db.query('SELECT * FROM color', (err, results) => {
+    db.query('SELECT * FROM color ORDER BY color_name ASC', (err, results) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(results);
     });
@@ -50,7 +50,7 @@ exports.getSizeUnits = (req, res) => {
 };
 
 exports.getwarehouse = (req, res) => {
-    db.query('SELECT * FROM warehouse', (err, results) => {
+    db.query('SELECT * FROM warehouse ORDER BY name ASC', (err, results) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json(results);
     });
