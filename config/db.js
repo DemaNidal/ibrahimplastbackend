@@ -1,15 +1,11 @@
-const mysql = require('mysql2');
+const mysql = require('mysql2/promise'); // استخدم النسخة الخاصة بالوعود
 
-const db = mysql.createConnection({
-    host: 'localhost',
-    user: 'root',
-    password: 'dmdmkh123', // اكتب الباسورد لو عندك
-    database: 'plastic_shop'
-});
-
-db.connect((err) => {
-    if (err) throw err;
-    console.log('MySQL Connected...');
+const db = mysql.createPool({ // استخدم createPool بدلاً من createConnection لدعم الوعود
+  host: 'localhost',
+  user: 'root',
+  password: 'dmdmkh123',
+  database: 'plastic_shop',
+  charset: 'utf8mb4',
 });
 
 module.exports = db;

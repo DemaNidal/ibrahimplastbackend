@@ -20,6 +20,7 @@ app.use('/api', authRoutes);
 app.use('/api', lookupRoutes);
 app.use('/api', productRoutes);
 
+
 // Run Server
 app.listen(5000, () => {
     console.log('Server is running on port 5000');

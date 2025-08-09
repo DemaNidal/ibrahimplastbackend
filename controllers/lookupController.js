@@ -1,57 +1,73 @@
 const db = require('../config/db'); // ملف الاتصال بالـ MySQL
 
-exports.getCategories = (req, res) => {
-    db.query('SELECT * FROM category ORDER BY category_name ASC', (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+exports.getCategories = async (req, res) => {
+    try {
+        const [results] = await db.query('SELECT * FROM category ORDER BY category_name ASC');
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
-exports.getColors = (req, res) => {
-    db.query('SELECT * FROM color ORDER BY color_name ASC', (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+exports.getColors = async (req, res) => {
+    try {
+        const [results] = await db.query('SELECT * FROM color ORDER BY color_name ASC');
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
-exports.getCurrencies = (req, res) => {
-    db.query('SELECT * FROM currency', (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+exports.getCurrencies = async (req, res) => {
+    try {
+        const [results] = await db.query('SELECT * FROM currency');
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
-exports.getMadeFrom = (req, res) => {
-    db.query('SELECT * FROM made_from', (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+exports.getMadeFrom = async (req, res) => {
+    try {
+        const [results] = await db.query('SELECT * FROM made_from');
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
-exports.getUnits = (req, res) => {
-    db.query('SELECT * FROM unit_for_quantity', (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+exports.getUnits = async (req, res) => {
+    try {
+        const [results] = await db.query('SELECT * FROM unit_for_quantity');
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
-exports.getUsages = (req, res) => {
-    db.query('SELECT * FROM usage_table', (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+exports.getUsages = async (req, res) => {
+    try {
+        const [results] = await db.query('SELECT * FROM usage_table');
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
-exports.getSizeUnits = (req, res) => {
-    db.query('SELECT * FROM size_unit', (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+exports.getSizeUnits = async (req, res) => {
+    try {
+        const [results] = await db.query('SELECT * FROM size_unit');
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
-exports.getwarehouse = (req, res) => {
-    db.query('SELECT * FROM warehouse ORDER BY name ASC', (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+exports.getwarehouse = async (req, res) => {
+    try {
+        const [results] = await db.query('SELECT * FROM warehouse ORDER BY name ASC');
         res.json(results);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };

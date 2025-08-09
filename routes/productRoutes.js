@@ -7,7 +7,7 @@ const slugify = require('slugify');
 
 const { BASE_UPLOAD_PATH } = require("../config/uploadConfig");
 
-const { addProduct ,getAllProducts} = require('../controllers/productController');
+const { addProduct ,getAllProducts,getProductById, searchProducts} = require('../controllers/productController');
 
 
 // إعداد رفع الصور
@@ -42,4 +42,6 @@ const upload = multer({ storage: storage });
 
 router.post('/products', upload.single('image'), addProduct);
 router.get('/allproducts', getAllProducts);
+router.get('/products/:id',getProductById);
+router.get('/search',searchProducts);
 module.exports = router;
