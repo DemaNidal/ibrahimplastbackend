@@ -1,112 +1,112 @@
 const db = require("../config/db");
 const path = require("path");
 const { BASE_UPLOAD_PATH } = require("../config/uploadConfig");
-const addProduct = (req, res) => {
-    console.log('Request body:', req.body);
+const addProduct = async (req, res) => {
+  try {
+    const {
+      name,
+      categoryId,
+      color,
+      currencyId,
+      madeFromId,
+      unit_id,
+      usageId,
+      price,
+      size_value,
+      size_unit_id,
+      description,
+      quantities,
+      locations,
+    } = req.body;
 
-  const {
-    name,
-    categoryId,
-    color,
-    currencyId,
-    madeFromId,
-    unit_id,
-    usageId,
-    price,
-    size_value,
-    size_unit_id,
-    description,
-    quantities,
-    locations,
-  } = req.body;
-
-  const safeValue = (val) => (val === "" ? null : val);
-
-  let image =  null;
-if (req.file) {
-  const fullPath = req.file.path.replace(/\\/g, '/'); // استبدل \ بـ /
-  const basePath = BASE_UPLOAD_PATH.replace(/\\/g, '/');
-
-  if (fullPath.startsWith(basePath)) {
-    image = fullPath.substring(basePath.length + 1); // +1 لتخطي الشرطة /
-  } else {
-    image = req.file.filename; // fallback
-  }
-}
-  const sql = `
-    INSERT INTO product 
-    (product_name, category_id, usage_id, made_from_id, price, currency_id, image_url, notes, unit_id, size_value, size_unit_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-
-  const values = [
-    name,
-    safeValue(categoryId),
-    safeValue(usageId),
-    safeValue(madeFromId),
-    safeValue(price),
-    safeValue(currencyId),
-    image,
-    safeValue(description),
-    safeValue(unit_id),
-    safeValue(size_value),
-    safeValue(size_unit_id),
-  ];
-
-  db.query(sql, values, (err, result) => {
-    if (err) {
-      console.error("Product insert error:", err);
-      return res.status(500).json({ message: "خطأ أثناء إضافة المنتج" });
+    if (!name || !categoryId) {
+      return res.status(400).json({ message: "الاسم والفئة مطلوبان" });
     }
 
+    const safeValue = (val) =>
+      val === "" || val === undefined || val === null ? null : val;
+
+    let image = null;
+    if (req.file) {
+      const fullPath = req.file.path.replace(/\\/g, "/");
+      const basePath = BASE_UPLOAD_PATH.replace(/\\/g, "/");
+      image = fullPath.startsWith(basePath)
+        ? fullPath.substring(basePath.length + 1)
+        : req.file.filename;
+    }
+
+    const sql = `
+      INSERT INTO product 
+      (product_name, category_id, usage_id, made_from_id, price, currency_id, image_url, notes, unit_id, size_value, size_unit_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const values = [
+      name,
+      safeValue(categoryId),
+      safeValue(usageId),
+      safeValue(madeFromId),
+      safeValue(price),
+      safeValue(currencyId),
+      image,
+      safeValue(description),
+      safeValue(unit_id),
+      safeValue(size_value),
+      safeValue(size_unit_id),
+    ];
+
+    const [result] = await db.query(sql, values);
     const productId = result.insertId;
+
+    let parsedColors = [];
+    let parsedQuantities = [];
+    let parsedLocations = [];
+
     try {
-  parsedColors = color ? JSON.parse(color) : [];
-  parsedQuantities = quantities ? JSON.parse(quantities) : [];
-  parsedLocations = locations ? JSON.parse(locations) : [];
-} catch (parseErr) {
-  console.error("JSON parse error:", parseErr);
-  return res.status(400).json({ message: "تنسيق بيانات غير صالح" });
-}
-    // إدخال الألوان (product_color)
+      parsedColors = Array.isArray(color) ? color : JSON.parse(color || "[]");
+      parsedQuantities = Array.isArray(quantities)
+        ? quantities
+        : JSON.parse(quantities || "[]");
+      parsedLocations = Array.isArray(locations)
+        ? locations
+        : JSON.parse(locations || "[]");
+    } catch (parseErr) {
+      console.error("JSON parse error:", parseErr);
+      return res.status(400).json({ message: "تنسيق بيانات غير صالح" });
+    }
+
+    // الألوان: تأكد أن parsedColors مصفوفة من أرقام (color ids)
     if (Array.isArray(parsedColors) && parsedColors.length > 0) {
       const colorValues = parsedColors.map((id) => [productId, id]);
-      db.query(
+      await db.query(
         `INSERT INTO product_color (product_id, color_id) VALUES ?`,
-        [colorValues],
-        (colorErr) => {
-          if (colorErr) console.error("Color insert error:", colorErr);
-        }
+        [colorValues]
       );
     }
 
+    // الكميات: تأكد أن parsedQuantities مصفوفة من كائنات تحتوي (rows, perRow)
     if (Array.isArray(parsedQuantities) && parsedQuantities.length > 0) {
       const quantityValues = parsedQuantities.map((q) => [
         productId,
         q.rows,
         q.perRow,
       ]);
-      db.query(
+      await db.query(
         `INSERT INTO quantity (product_id, quantity_rows, quantity_per_row) VALUES ?`,
-        [quantityValues],
-        (qtyErr) => {
-          if (qtyErr) console.error("Quantity insert error:", qtyErr);
-        }
+        [quantityValues]
       );
     }
 
+    // المواقع: تأكد أن parsedLocations مصفوفة من كائنات تحتوي (location, warehouse_id)
     if (Array.isArray(parsedLocations) && parsedLocations.length > 0) {
       const locationValues = parsedLocations.map((loc) => [
         productId,
         loc.location,
         loc.warehouse_id,
       ]);
-      db.query(
+      await db.query(
         `INSERT INTO location (product_id, location, warehouse_id) VALUES ?`,
-        [locationValues],
-        (locErr) => {
-          if (locErr) console.error("Location insert error:", locErr);
-        }
+        [locationValues]
       );
     }
 
@@ -114,8 +114,12 @@ if (req.file) {
       message: "تمت إضافة المنتج بنجاح",
       productId,
     });
-  });
+  } catch (err) {
+    console.error("Product insert error:", err);
+    res.status(500).json({ message: "خطأ أثناء إضافة المنتج" });
+  }
 };
+
 const getAllProducts = async (req, res) => {
   try {
     const [products] = await db.query(`
@@ -134,10 +138,11 @@ const getAllProducts = async (req, res) => {
       LEFT JOIN currency cu ON p.currency_id = cu.currency_id
     `);
 
-    const productIds = products.map(p => p.product_id);
+    const productIds = products.map((p) => p.product_id);
     if (productIds.length === 0) return res.json([]);
 
-    const [colorResults] = await db.query(`
+    const [colorResults] = await db.query(
+      `
       SELECT 
         pc.product_id,
         JSON_ARRAYAGG(
@@ -147,26 +152,25 @@ const getAllProducts = async (req, res) => {
       JOIN color col ON pc.color_id = col.color_id
       WHERE pc.product_id IN (?)
       GROUP BY pc.product_id;
-    `, [productIds]);
-const lookup = colorResults.reduce((acc, row) => {
-  acc[row.product_id] = row.colors; // No JSON.parse!
-  return acc;
-}, {});
+    `,
+      [productIds]
+    );
+    const lookup = colorResults.reduce((acc, row) => {
+      acc[row.product_id] = row.colors; // No JSON.parse!
+      return acc;
+    }, {});
 
-    const enrichedProducts = products.map(prod => ({
+    const enrichedProducts = products.map((prod) => ({
       ...prod,
       colors: lookup[prod.product_id] || [],
     }));
 
     res.json(enrichedProducts);
-
   } catch (err) {
     console.error("Error fetching products:", err);
     res.status(500).json({ message: "فشل في جلب المنتجات" });
   }
 };
-
-
 
 const getProductById = async (req, res) => {
   const productId = req.params.id;
@@ -195,7 +199,7 @@ const getProductById = async (req, res) => {
     );
 
     if (productRows.length === 0) {
-      return res.status(404).json({ message: 'Product not found' });
+      return res.status(404).json({ message: "Product not found" });
     }
 
     const product = productRows[0];
@@ -231,10 +235,9 @@ const getProductById = async (req, res) => {
     };
 
     res.json(fullProduct);
-
   } catch (error) {
-    console.error('Error fetching product:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error("Error fetching product:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -244,11 +247,11 @@ const searchProducts = async (req, res) => {
     const searchByName = req.query.term;
     if (!searchByName) {
       return res.status(400).json({
-        error: 'search term is required'
+        error: "search term is required",
       });
     }
 
-    console.log('Search term from query:', searchByName);
+    console.log("Search term from query:", searchByName);
 
     const searchValue = `%${searchByName}%`; // partial match anywhere
 
@@ -269,8 +272,7 @@ const searchProducts = async (req, res) => {
       LEFT JOIN currency cu ON p.currency_id = cu.currency_id
       WHERE product_name LIKE ?
     `;
-     
-       
+
     const [products] = await db.query(productQuery, [searchValue]);
 
     if (products.length === 0) {
@@ -278,7 +280,7 @@ const searchProducts = async (req, res) => {
     }
 
     // Extract product IDs for the next queries
-    const productIds = products.map(p => p.product_id);
+    const productIds = products.map((p) => p.product_id);
 
     // 2. Get colors for all products found
     const colorQuery = `
@@ -287,7 +289,7 @@ const searchProducts = async (req, res) => {
       JOIN color c ON pc.color_id = c.color_id
       WHERE pc.product_id IN (?)
     `;
-    
+
     const [colors] = await db.query(colorQuery, [productIds]);
 
     // 3. Get locations for all products found (with warehouse)
@@ -308,39 +310,37 @@ const searchProducts = async (req, res) => {
     const [quantities] = await db.query(quantityQuery, [productIds]);
 
     // 5. Combine related data into each product
-    const productsWithDetails = products.map(product => {
+    const productsWithDetails = products.map((product) => {
       return {
         ...product,
         colors: colors
-          .filter(c => c.product_id === product.product_id)
-          .map(c => ({ color_id: c.color_id, colorName: c.colorName })),
+          .filter((c) => c.product_id === product.product_id)
+          .map((c) => ({ color_id: c.color_id, colorName: c.colorName })),
         locations: locations
-          .filter(l => l.product_id === product.product_id)
-          .map(l => ({ location: l.location, warehouse_name: l.warehouse_name })),
+          .filter((l) => l.product_id === product.product_id)
+          .map((l) => ({
+            location: l.location,
+            warehouse_name: l.warehouse_name,
+          })),
         quantities: quantities
-          .filter(q => q.product_id === product.product_id)
-          .map(q => ({
+          .filter((q) => q.product_id === product.product_id)
+          .map((q) => ({
             qyantity_rows: q.quantity_rows,
             quantity_per_rows: q.quantity_per_row,
-            total: q.total
-          }))
+            total: q.total,
+          })),
       };
     });
 
-    console.log('Search results count:', productsWithDetails.length);
+    console.log("Search results count:", productsWithDetails.length);
     res.json(productsWithDetails);
-
   } catch (err) {
-    console.error('Search error:', err);
+    console.error("Search error:", err);
     res.status(500).json({
-      error: 'Database error',
-      details: err.message
+      error: "Database error",
+      details: err.message,
     });
   }
 };
 
-
-
-
-
-module.exports = { addProduct,getAllProducts,getProductById,searchProducts };
+module.exports = { addProduct, getAllProducts, getProductById, searchProducts };
