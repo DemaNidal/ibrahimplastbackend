@@ -60,7 +60,7 @@ const addProduct = async (req, res) => {
 
     let parsedColors = [];
     let parsedQuantities = [];
-    let parsedLocations = [];
+    let parsedLocations = [];  
 
     try {
       parsedColors = Array.isArray(color) ? color : JSON.parse(color || "[]");
@@ -343,4 +343,61 @@ const searchProducts = async (req, res) => {
   }
 };
 
-module.exports = { addProduct, getAllProducts, getProductById, searchProducts };
+const SearchByBarcode = async (req, res) => {
+  try {
+    const rawBarcode = req.query.barcode;
+    if (!rawBarcode || !/^\d+$/.test(rawBarcode)) {
+      return res.status(400).json({ error: "Invalid or missing barcode" });
+    }
+
+    const productId = parseInt(rawBarcode, 10); // تحويل الباركود لرقم
+
+    // جلب بيانات المنتج
+    const productQuery = `
+      SELECT 
+        p.product_id, 
+        p.product_name AS name, 
+        p.price,
+        p.size_value,
+        su.size_unit_name AS sizeUnit,
+        c.category_name AS category,
+        p.image_url,
+        cur.currency_name AS currency
+      FROM product p
+      LEFT JOIN category c ON p.category_id = c.category_id
+      LEFT JOIN size_unit su ON p.size_unit_id = su.size_unit_id
+      LEFT JOIN currency cur ON p.currency_id = cur.currency_id
+      WHERE p.product_id = ?
+    `;
+    const [products] = await db.query(productQuery, [productId]);
+
+    if (products.length === 0) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    // جلب الألوان
+    const colorQuery = `
+      SELECT pc.product_id, c.color_id, c.color_name AS colorName
+      FROM product_color pc
+      JOIN color c ON pc.color_id = c.color_id
+      WHERE pc.product_id = ?
+    `;
+    const [colors] = await db.query(colorQuery, [productId]);
+
+    // دمج الألوان مع بيانات المنتج
+    const finalResult = {
+      ...products[0],
+      colors: colors.map(c => ({
+        color_id: c.color_id,
+        colorName: c.colorName
+      }))
+    };
+
+    res.json(finalResult);
+  } catch (err) {
+    console.error("SearchByBarcode Error:", err);
+    res.status(500).json({ error: "Database error", details: err.message });
+  }
+};
+
+module.exports = { addProduct, getAllProducts, getProductById, searchProducts, SearchByBarcode };
