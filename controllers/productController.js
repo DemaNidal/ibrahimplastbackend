@@ -244,55 +244,88 @@ const getProductById = async (req, res) => {
 // افترض عندك db من mysql2/promise pool
 const searchProducts = async (req, res) => {
   try {
-    const searchByName = req.query.term;
-    if (!searchByName) {
-      return res.status(400).json({
-        error: "search term is required",
-      });
+    const { term, category, made_from, sizeUnit, size_value, warehouse_name } = req.query;
+
+    if (!term && !category && !made_from && !sizeUnit && !size_value && !warehouse_name) {
+      return res.status(400).json({ error: "At least one filter or search term is required" });
     }
 
-    console.log("Search term from query:", searchByName);
+let conditions = [];
+let values = [];
 
-    const searchValue = `%${searchByName}%`; // partial match anywhere
+if (term) {
+  conditions.push("p.product_name LIKE ?");
+  values.push(`%${term}%`);
+}
 
-    // 1. Get products matching search term
-    const productQuery = `
-      SELECT 
-        p.product_id,
-        p.product_name AS name,
-        p.price,
-        p.size_value,
-        su.size_unit_name AS sizeUnit,
-        c.category_name AS category,
-        p.image_url,
-        cu.currency_name AS currency
-      FROM product p
-      LEFT JOIN category c ON p.category_id = c.category_id
-      LEFT JOIN size_unit su ON p.size_unit_id = su.size_unit_id
-      LEFT JOIN currency cu ON p.currency_id = cu.currency_id
-      WHERE product_name LIKE ?
-    `;
+if (category) {
+  conditions.push("c.category_name = ?");
+  values.push(category);
+}
 
-    const [products] = await db.query(productQuery, [searchValue]);
+if (made_from) {
+  conditions.push("mf.made_from_name = ?");
+  values.push(made_from);
+}
 
-    if (products.length === 0) {
-      return res.json([]); // no results
-    }
+if (sizeUnit) {
+  conditions.push("su.size_unit_name = ?");
+  values.push(sizeUnit);
+}
 
-    // Extract product IDs for the next queries
+if (size_value) {
+  conditions.push("p.size_value = ?");
+  values.push(size_value);
+}
+
+let joinWarehouse = `
+  LEFT JOIN location loc ON loc.product_id = p.product_id
+  LEFT JOIN warehouse w ON loc.warehouse_id = w.id
+`;
+
+if (warehouse_name) {
+  // Move condition into WHERE, trim to avoid whitespace mismatches
+  conditions.push("TRIM(w.name) = TRIM(?)");
+  values.push(warehouse_name);
+}
+
+const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+const productQuery = `
+  SELECT 
+    p.product_id,
+    p.product_name AS name,
+    p.price,
+    p.size_value,
+    su.size_unit_name AS sizeUnit,
+    c.category_name AS category,
+    p.image_url,
+    cu.currency_name AS currency
+  FROM product p
+  LEFT JOIN category c ON p.category_id = c.category_id
+  LEFT JOIN made_from mf ON p.made_from_id = mf.made_from_id
+  LEFT JOIN size_unit su ON p.size_unit_id = su.size_unit_id
+  LEFT JOIN currency cu ON p.currency_id = cu.currency_id
+  ${joinWarehouse}
+  ${whereClause}
+   ORDER BY p.product_name ASC
+`;
+
+
+    const [products] = await db.query(productQuery, values);
+
+    if (products.length === 0) return res.json([]);
+
     const productIds = products.map((p) => p.product_id);
 
-    // 2. Get colors for all products found
     const colorQuery = `
       SELECT pc.product_id, c.color_id, c.color_name AS colorName
       FROM product_color pc
       JOIN color c ON pc.color_id = c.color_id
       WHERE pc.product_id IN (?)
     `;
-
     const [colors] = await db.query(colorQuery, [productIds]);
 
-    // 3. Get locations for all products found (with warehouse)
     const locationQuery = `
       SELECT loc.product_id, loc.location, w.name AS warehouse_name
       FROM location loc
@@ -301,7 +334,6 @@ const searchProducts = async (req, res) => {
     `;
     const [locations] = await db.query(locationQuery, [productIds]);
 
-    // 4. Get quantities for all products found
     const quantityQuery = `
       SELECT product_id, quantity_rows, quantity_per_row, total
       FROM quantity 
@@ -309,39 +341,32 @@ const searchProducts = async (req, res) => {
     `;
     const [quantities] = await db.query(quantityQuery, [productIds]);
 
-    // 5. Combine related data into each product
-    const productsWithDetails = products.map((product) => {
-      return {
-        ...product,
-        colors: colors
-          .filter((c) => c.product_id === product.product_id)
-          .map((c) => ({ color_id: c.color_id, colorName: c.colorName })),
-        locations: locations
-          .filter((l) => l.product_id === product.product_id)
-          .map((l) => ({
-            location: l.location,
-            warehouse_name: l.warehouse_name,
-          })),
-        quantities: quantities
-          .filter((q) => q.product_id === product.product_id)
-          .map((q) => ({
-            qyantity_rows: q.quantity_rows,
-            quantity_per_rows: q.quantity_per_row,
-            total: q.total,
-          })),
-      };
-    });
+    const productsWithDetails = products.map((product) => ({
+      ...product,
+      colors: colors
+        .filter((c) => c.product_id === product.product_id)
+        .map((c) => ({ color_id: c.color_id, colorName: c.colorName })),
+      locations: locations
+        .filter((l) => l.product_id === product.product_id)
+        .map((l) => ({ location: l.location, warehouse_name: l.warehouse_name })),
+      quantities: quantities
+        .filter((q) => q.product_id === product.product_id)
+        .map((q) => ({
+          qyantity_rows: q.quantity_rows,
+          quantity_per_rows: q.quantity_per_row,
+          total: q.total,
+        })),
+    }));
 
-    console.log("Search results count:", productsWithDetails.length);
     res.json(productsWithDetails);
   } catch (err) {
     console.error("Search error:", err);
-    res.status(500).json({
-      error: "Database error",
-      details: err.message,
-    });
+    res.status(500).json({ error: "Database error", details: err.message });
   }
 };
+
+
+
 
 const SearchByBarcode = async (req, res) => {
   try {
