@@ -244,73 +244,79 @@ const getProductById = async (req, res) => {
 // افترض عندك db من mysql2/promise pool
 const searchProducts = async (req, res) => {
   try {
-    const { term, category, made_from, sizeUnit, size_value, warehouse_name } = req.query;
+    const { term, category, made_from, sizeUnit, size_value, warehouse_name, usage_name } = req.query;
 
-    if (!term && !category && !made_from && !sizeUnit && !size_value && !warehouse_name) {
+    if (!term && !category && !made_from && !sizeUnit && !size_value && !warehouse_name && !usage_name) {
       return res.status(400).json({ error: "At least one filter or search term is required" });
     }
 
-let conditions = [];
-let values = [];
+    let conditions = [];
+    let values = [];
 
-if (term) {
-  conditions.push("p.product_name LIKE ?");
-  values.push(`%${term}%`);
-}
+    if (term) {
+      conditions.push("p.product_name LIKE ?");
+      values.push(`%${term}%`);
+    }
 
-if (category) {
-  conditions.push("c.category_name = ?");
-  values.push(category);
-}
+    if (category) {
+      conditions.push("c.category_name = ?");
+      values.push(category);
+    }
 
-if (made_from) {
-  conditions.push("mf.made_from_name = ?");
-  values.push(made_from);
-}
+    if (made_from) {
+      conditions.push("mf.made_from_name = ?");
+      values.push(made_from);
+    }
 
-if (sizeUnit) {
-  conditions.push("su.size_unit_name = ?");
-  values.push(sizeUnit);
-}
+    if (usage_name) {
+      conditions.push("u.usage_name = ?");
+      values.push(usage_name);
+    }
 
-if (size_value) {
-  conditions.push("p.size_value = ?");
-  values.push(size_value);
-}
+    if (sizeUnit) {
+      conditions.push("su.size_unit_name = ?");
+      values.push(sizeUnit);
+    }
 
-let joinWarehouse = `
-  LEFT JOIN location loc ON loc.product_id = p.product_id
-  LEFT JOIN warehouse w ON loc.warehouse_id = w.id
-`;
+    if (size_value) {
+      conditions.push("p.size_value = ?");
+      values.push(size_value);
+    }
 
-if (warehouse_name) {
-  // Move condition into WHERE, trim to avoid whitespace mismatches
-  conditions.push("TRIM(w.name) = TRIM(?)");
-  values.push(warehouse_name);
-}
+    let joinWarehouse = `
+      LEFT JOIN location loc ON loc.product_id = p.product_id
+      LEFT JOIN warehouse w ON loc.warehouse_id = w.id
+    `;
 
-const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+    if (warehouse_name) {
+      conditions.push("TRIM(w.name) = TRIM(?)");
+      values.push(warehouse_name);
+    }
 
-const productQuery = `
-  SELECT 
-    p.product_id,
-    p.product_name AS name,
-    p.price,
-    p.size_value,
-    su.size_unit_name AS sizeUnit,
-    c.category_name AS category,
-    p.image_url,
-    cu.currency_name AS currency
-  FROM product p
-  LEFT JOIN category c ON p.category_id = c.category_id
-  LEFT JOIN made_from mf ON p.made_from_id = mf.made_from_id
-  LEFT JOIN size_unit su ON p.size_unit_id = su.size_unit_id
-  LEFT JOIN currency cu ON p.currency_id = cu.currency_id
-  ${joinWarehouse}
-  ${whereClause}
-   ORDER BY p.product_name ASC
-`;
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
+    const productQuery = `
+      SELECT 
+        p.product_id,
+        p.product_name AS name,
+        p.price,
+        p.size_value,
+        su.size_unit_name AS sizeUnit,
+        c.category_name AS category,
+        mf.made_from_name AS madeFrom,
+        u.usage_name AS usageName,
+        p.image_url,
+        cu.currency_name AS currency
+      FROM product p
+      LEFT JOIN category c ON p.category_id = c.category_id
+      LEFT JOIN made_from mf ON p.made_from_id = mf.made_from_id
+      LEFT JOIN usage_table u ON p.usage_id = u.usage_id
+      LEFT JOIN size_unit su ON p.size_unit_id = su.size_unit_id
+      LEFT JOIN currency cu ON p.currency_id = cu.currency_id
+      ${joinWarehouse}
+      ${whereClause}
+      ORDER BY p.product_name ASC
+    `;
 
     const [products] = await db.query(productQuery, values);
 
@@ -364,7 +370,6 @@ const productQuery = `
     res.status(500).json({ error: "Database error", details: err.message });
   }
 };
-
 
 
 
