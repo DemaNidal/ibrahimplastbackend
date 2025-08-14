@@ -258,10 +258,12 @@ const searchProducts = async (req, res) => {
       values.push(`%${term}%`);
     }
 
-    if (category) {
-      conditions.push("c.category_name = ?");
-      values.push(category);
-    }
+   if (category) {
+  const categoriesArray = category.split(",").map(c => c.trim());
+  conditions.push(`c.category_name IN (${categoriesArray.map(() => "?").join(",")})`);
+  values.push(...categoriesArray);
+}
+
 
     if (made_from) {
       conditions.push("mf.made_from_name = ?");
