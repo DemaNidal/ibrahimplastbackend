@@ -275,15 +275,16 @@ const searchProducts = async (req, res) => {
       values.push(usage_name);
     }
 
-    if (sizeUnit) {
-      conditions.push("su.size_unit_name = ?");
-      values.push(sizeUnit);
-    }
+   if (size_value || sizeUnit) {
+  if (size_value && sizeUnit) {
+    conditions.push("p.size_value = ? AND su.size_unit_name = ?");
+    values.push(size_value, sizeUnit);
+  } else {
+    // If only one is provided, return no results
+    return res.json([]);  
+  }
+}
 
-    if (size_value) {
-      conditions.push("p.size_value = ?");
-      values.push(size_value);
-    }
 
     let joinWarehouse = `
       LEFT JOIN location loc ON loc.product_id = p.product_id

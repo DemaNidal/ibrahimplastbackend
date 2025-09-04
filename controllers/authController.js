@@ -2,7 +2,7 @@ const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
-const SECRET_KEY = 'your_secret_key';
+const SECRET_KEY = process.env.SECRET_KEY;
 
 // ✅ Register Function (مع تحقق وأمان)
 const register = async (req, res) => {
@@ -40,41 +40,44 @@ const register = async (req, res) => {
     }
 };
 
-// ✅ Login Function (مع حماية الأخطاء)
-const login = (req, res) => {
-    try {
-        const { username, password } = req.body;
+const login = async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    console.log("Login attempt:", username, password);
 
-        // تحقق من وجود الحقول
-        if (!username || !password) {
-            return res.status(400).json({ message: 'اسم المستخدم وكلمة المرور مطلوبين' });
-        }
-
-        db.query('SELECT * FROM users WHERE username = ?', [username], async (err, results) => {
-            if (err) return res.status(500).json({ message: 'خطأ في السيرفر' });
-
-            if (results.length === 0) {
-                return res.status(401).json({ message: 'اسم المستخدم غير موجود' });
-            }
-
-            const user = results[0];
-
-            const isMatch = await bcrypt.compare(password, user.password);
-            if (!isMatch) {
-                return res.status(401).json({ message: 'كلمة المرور غير صحيحة' });
-            }
-
-            const token = jwt.sign(
-                { user_id: user.user_id, role: user.role },
-                SECRET_KEY,
-                { expiresIn: '1h' }
-            );
-
-            res.json({ token });
-        });
-    } catch (error) {
-        res.status(500).json({ message: 'حدث خطأ أثناء تسجيل الدخول' });
+    if (!username || !password) {
+      return res.status(400).json({ message: 'اسم المستخدم وكلمة المرور مطلوبين' });
     }
+
+    const [results] = await db.query('SELECT * FROM users WHERE username = ?', [username]);
+    console.log("Results:", results);
+
+    if (results.length === 0) {
+      return res.status(401).json({ message: 'اسم المستخدم غير موجود' });
+    }
+
+    const user = results[0];
+
+    const isMatch = bcrypt.compareSync(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'كلمة المرور غير صحيحة' });
+    }
+
+    const token = jwt.sign(
+      { user_id: user.user_id, role: user.role },
+      SECRET_KEY,
+      { expiresIn: '1h' }
+    );
+
+    console.log("Generated token:", token);
+    return res.json({ token });
+
+  } catch (err) {
+    console.error("Login error:", err);
+    return res.status(500).json({ message: 'خطأ في السيرفر' });
+  }
 };
+
+
 
 module.exports = { register, login };
