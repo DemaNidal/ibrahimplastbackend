@@ -39,46 +39,49 @@ const register = async (req, res) => {
     return res.status(500).json({ message: "حدث خطأ أثناء التسجيل" });
   }
 };
-
 const login = async (req, res) => {
   try {
     const { username, password } = req.body;
-    console.log("Login attempt:", username, password);
 
     if (!username || !password) {
-      return res
-        .status(400)
-        .json({ message: "اسم المستخدم وكلمة المرور مطلوبين" });
+      return res.status(400).json({ message: "اسم المستخدم وكلمة المرور مطلوبين" });
     }
 
-    const [results] = await db.query("SELECT * FROM users WHERE username = ?", [
-      username,
-    ]);
-    console.log("Results:", results);
+    const [results] = await db.query("SELECT * FROM users WHERE username = ?", [username]);
 
     if (results.length === 0) {
       return res.status(401).json({ message: "اسم المستخدم غير موجود" });
     }
 
     const user = results[0];
-
     const isMatch = bcrypt.compareSync(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: "كلمة المرور غير صحيحة" });
     }
 
     const token = jwt.sign(
-      { user_id: user.user_id, role: user.role },
-      SECRET_KEY,
+      { user_id: user.user_id, username: user.username, role: user.role },
+      process.env.SECRET_KEY,
       { expiresIn: "1h" }
     );
 
-    console.log("Generated token:", token);
-    return res.json({ token });
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: false, // true if https
+      sameSite: "lax",
+    });
+
+    return res.json({
+      token,
+      user: { id: user.user_id, username: user.username, role: user.role },
+    });
   } catch (err) {
     console.error("Login error:", err);
     return res.status(500).json({ message: "خطأ في السيرفر" });
   }
 };
-
-module.exports = { register, login };
+const logout = async (req, res) =>{
+    res.clearCookie('token');
+    return res.json({Status: "Success"});
+}
+module.exports = { register, login, logout };
