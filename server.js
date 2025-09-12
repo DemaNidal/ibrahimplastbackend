@@ -4,7 +4,7 @@ const app = express();
 const { BASE_UPLOAD_PATH } = require("./config/uploadConfig");
 require("dotenv").config();
 const cookieParser = require('cookie-parser');
-const jwt = require("jsonwebtoken");
+const verifyUser = require('./middlewares/auth');
 
 const path = require('path');
 
@@ -27,22 +27,6 @@ const productRoutes = require('./routes/productRoutes');
 app.use('/api', authRoutes);
 app.use('/api', lookupRoutes);
 app.use('/api', productRoutes);
-
-const verifyUser = (req, res, next) => {
-  const token = req.cookies.token;
-  if (!token) {
-    return res.json({ Error: "You are not authenticated" });
-  }
-
-  jwt.verify(token, process.env.SECRET_KEY, (err, decoded) => {
-    if (err) {
-      return res.json({ Error: "Token is not valid" });
-    } else {
-      req.user = decoded; // contains user_id, username, role
-      next();
-    }
-  });
-};
 
 
 app.get("/api", verifyUser, (req, res) => {
