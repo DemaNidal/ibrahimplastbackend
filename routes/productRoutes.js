@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const slugify = require('slugify');
+const verifyUser = require('../middlewares/auth');
 
 const { BASE_UPLOAD_PATH } = require("../config/uploadConfig");
 
@@ -40,9 +41,9 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-router.post('/products', upload.single('image'), addProduct);
-router.get('/allproducts', getAllProducts);
-router.get('/products/:id',getProductById);
-router.get('/search',searchProducts);
-router.get('/search/barcode',SearchByBarcode);
+router.post('/products', verifyUser,upload.single('image'), addProduct);
+router.get('/allproducts', verifyUser,getAllProducts);
+router.get('/products/:id',verifyUser,getProductById);
+router.get('/search',verifyUser,searchProducts);
+router.get('/search/barcode',verifyUser,SearchByBarcode);
 module.exports = router;
