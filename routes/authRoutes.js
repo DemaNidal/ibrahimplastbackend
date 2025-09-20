@@ -8,6 +8,6 @@ router.post('/register',register);
 // Login API
 router.post('/login', login);
 
-router.get('/logout', logout);
+router.post('/logout', logout);
 
 module.exports = router;

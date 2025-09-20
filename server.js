@@ -22,11 +22,13 @@ app.use('/uploads', express.static(path.join(BASE_UPLOAD_PATH)));
 const authRoutes = require('./routes/authRoutes');
 const lookupRoutes = require('./routes/lookupRoutes');
 const productRoutes = require('./routes/productRoutes');
+const productsMovementsRoutes = require('./routes/productsMovementsRoutes');
 
 // Auth Routes
 app.use('/api', authRoutes);
 app.use('/api', lookupRoutes);
 app.use('/api', productRoutes);
+app.use('/api/movements', productsMovementsRoutes);
 
 
 app.get("/api", verifyUser, (req, res) => {

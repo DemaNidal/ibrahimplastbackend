@@ -44,10 +44,14 @@ const login = async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
-      return res.status(400).json({ message: "اسم المستخدم وكلمة المرور مطلوبين" });
+      return res
+        .status(400)
+        .json({ message: "اسم المستخدم وكلمة المرور مطلوبين" });
     }
 
-    const [results] = await db.query("SELECT * FROM users WHERE username = ?", [username]);
+    const [results] = await db.query("SELECT * FROM users WHERE username = ?", [
+      username,
+    ]);
 
     if (results.length === 0) {
       return res.status(401).json({ message: "اسم المستخدم غير موجود" });
@@ -67,8 +71,9 @@ const login = async (req, res) => {
 
     res.cookie("token", token, {
       httpOnly: true,
-      secure: false, // true if https
-      sameSite: "lax",
+      secure: true,
+      sameSite: "strict",
+      // ❌ no maxAge or expires → becomes session cookie
     });
 
     return res.json({
@@ -80,8 +85,8 @@ const login = async (req, res) => {
     return res.status(500).json({ message: "خطأ في السيرفر" });
   }
 };
-const logout = async (req, res) =>{
-    res.clearCookie('token');
-    return res.json({Status: "Success"});
-}
+const logout = async (req, res) => {
+  res.clearCookie("token");
+  return res.json({ Status: "Success" });
+};
 module.exports = { register, login, logout };
